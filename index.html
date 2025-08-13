@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Biogas & Biomethane Calculator</title>
+<style>
+  :root{
+    --bg-grad-1:#eef2f3; --bg-grad-2:#dfe9f3;
+    --card:#ffffff; --card-alt:#f9fafb; --border:#e2e8f0;
+    --text:#2b2b2b; --muted:#64748b;
+    --accent-1:#2a7f62; --accent-2:#57b894; --accent-3:#4fa386;
+    --danger-1:#e11d48; --danger-2:#f43f5e;
+    --shadow:0 10px 25px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+    color:var(--text);
+    background:linear-gradient(135deg,var(--bg-grad-1),var(--bg-grad-2));
+  }
+  .wrap{max-width:1100px;margin:32px auto;padding:0 16px;}
+  .app{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;animation:fadeIn .6s ease}
+  .app__header{padding:22px 24px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+  .title{margin:0;font-size:clamp(20px,3vw,28px);font-weight:800;letter-spacing:.2px;color:var(--accent-1)}
+  .muted{color:var(--muted);font-size:.92rem}
+
+  /* Form */
+  .grid{display:grid;gap:14px}
+  .grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media (max-width:860px){.grid--3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:600px){.grid--2,.grid--3{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border-top:1px solid var(--border);padding:20px}
+  .section-title{margin:0 0 12px;font-size:1.05rem;color:#0f172a;font-weight:700}
+
+  label{display:block;font-weight:600;margin-bottom:6px;color:#1f2937}
+  .row{display:flex;gap:10px;align-items:center}
+  .row span{font-size:.9rem;color:var(--muted)}
+  input,select{width:100%;appearance:none;border:1px solid var(--border);background:#fbfbfc;color:#111827;border-radius:10px;padding:10px 12px;font-size:1rem;transition:border .2s, box-shadow .2s, transform .2s}
+  input:focus,select:focus{outline:none;border-color:var(--accent-2);box-shadow:0 0 0 4px rgba(87,184,148,.15)}
+  input:hover,select:hover{border-color:#cbd5e1}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;transition:transform .2s ease, box-shadow .2s ease, filter .2s ease}
+  .btn--accent{background:linear-gradient(135deg,var(--accent-1),var(--accent-2));box-shadow:0 8px 18px rgba(42,127,98,.25)}
+  .btn--accent:hover{transform:translateY(-1px) scale(1.03);filter:saturate(1.05);box-shadow:0 12px 26px rgba(42,127,98,.35);background:linear-gradient(135deg,var(--accent-2),var(--accent-1))}
+  .btn--ghost{background:linear-gradient(135deg,#0ea5e9,#22d3ee);box-shadow:0 8px 18px rgba(14,165,233,.25)}
+  .btn--ghost:hover{transform:translateY(-1px) scale(1.03);box-shadow:0 12px 26px rgba(14,165,233,.35);background:linear-gradient(135deg,#22d3ee,#0ea5e9)}
+  .btn--danger{background:linear-gradient(135deg,var(--danger-1),var(--danger-2));box-shadow:0 8px 18px rgba(225,29,72,.25)}
+  .btn--danger:hover{transform:translateY(-1px) scale(1.03);box-shadow:0 12px 26px rgba(225,29,72,.35);}
+  .btn:active{transform:translateY(0) scale(.98)}
+  .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:.95rem}
+  th{color:#0f172a;font-weight:800;background:var(--card-alt)}
+  tr.enter{animation:rowIn .35s ease}
+  tr.exit{animation:rowOut .28s ease forwards}
+  .tbl-actions{display:flex;gap:8px}
+
+  /* Results */
+  .results{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media (max-width:860px){.results{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:520px){.results{grid-template-columns:1fr}}
+  .metric{background:linear-gradient(135deg,#ffffff,#f8fafc);border:1px solid var(--border);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+  .metric .k{font-size:.78rem;color:var(--muted);margin-bottom:4px}
+  .metric .v{font-size:1.25rem;font-weight:800;color:#0f172a}
+
+  /* Animations */
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes rowIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes rowOut{to{opacity:0;transform:translateY(-6px)}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="app" id="app">
+      <div class="app__header">
+        <h1 class="title">Biogas & Biomethane Calculator</h1>
+        <div class="muted">Fully custom · Presets · LocalStorage · Animated UI</div>
+      </div>
+
+      <!-- FORM SECTION -->
+      <div class="card">
+        <div class="section-title">Feed Entry</div>
+        <div class="grid grid--3" style="margin-bottom:10px">
+          <div>
+            <label>Preset feedstock</label>
+            <select id="preset">
+              <option value="">— choose optional preset —</option>
+              <option value='{"name":"Cattle manure","TS":12,"VS":80,"yield":0.25,"methane":58}'>Cattle manure</option>
+              <option value='{"name":"Food waste","TS":25,"VS":90,"yield":0.65,"methane":60}'>Food waste</option>
+              <option value='{"name":"Poultry litter","TS":65,"VS":75,"yield":0.40,"methane":60}'>Poultry litter</option>
+              <option value='{"name":"Corn silage","TS":32,"VS":92,"yield":0.70,"methane":53}'>Corn silage</option>
+              <option value='{"name":"Kitchen waste","TS":20,"VS":90,"yield":0.60,"methane":60}'>Kitchen waste</option>
+              <option value='{"name":"Sewage sludge","TS":4,"VS":70,"yield":0.30,"methane":62}'>Sewage sludge</option>
+            </select>
+          </div>
+          <div class="row" style="align-items:end"><button class="btn btn--ghost" id="loadPreset">Load preset</button><span>Presets fill TS/VS/Yield/CH₄ — you can edit them.</span></div>
+        </div>
+
+        <div class="grid grid--3">
+          <div>
+            <label>Slurry mass (kg/day)</label>
+            <input type="number" id="slurry" value="1000" min="0" step="1">
+          </div>
+          <div>
+            <label>Added water (kg/day)</label>
+            <input type="number" id="water" value="0" min="0" step="1">
+          </div>
+          <div>
+            <label>TS of slurry (%)</label>
+            <input type="number" id="ts" value="20" min="0" max="99" step="0.1">
+          </div>
+          <div>
+            <label>VS of TS (%)</label>
+            <input type="number" id="vs" value="80" min="0" max="99" step="0.1">
+          </div>
+          <div>
+            <label>Biogas yield (m³/kg VS)</label>
+            <input type="number" id="yield" value="0.50" min="0" step="0.01">
+          </div>
+          <div>
+            <label>Methane in biogas (%)</label>
+            <input type="number" id="methane" value="60" min="30" max="80" step="1">
+          </div>
+          <div>
+            <label>Plant efficiency (%)</label>
+            <input type="number" id="eff" value="95" min="50" max="100" step="1">
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top:14px">
+          <button class="btn btn--accent" id="addBtn">Add feedstock</button>
+          <button class="btn btn--danger" id="clearBtn">Clear all</button>
+          <span class="muted">TS is for slurry only; water is assumed to have 0% TS. Effective mixture TS is computed automatically.</span>
+        </div>
+      </div>
+
+      <!-- TABLE SECTION -->
+      <div class="card">
+        <div class="section-title">Inlet Slurries</div>
+        <div style="overflow:auto">
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Slurry (kg)</th>
+                <th>Water (kg)</th>
+                <th>Mix TS (%)</th>
+                <th>VS (kg/d)</th>
+                <th>Biogas (m³/d)</th>
+                <th>CH₄ (m³/d)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RESULTS SECTION -->
+      <div class="card">
+        <div class="section-title">Totals</div>
+        <div class="results" id="totals">
+          <div class="metric"><div class="k">Wet mass (kg/day)</div><div class="v" id="t_mass">0</div></div>
+          <div class="metric"><div class="k">TS added (kg/day)</div><div class="v" id="t_ts">0</div></div>
+          <div class="metric"><div class="k">VS added (kg/day)</div><div class="v" id="t_vs">0</div></div>
+          <div class="metric"><div class="k">Biogas (m³/day)</div><div class="v" id="t_biogas">0</div></div>
+          <div class="metric"><div class="k">Methane (m³/day)</div><div class="v" id="t_ch4">0</div></div>
+          <div class="metric"><div class="k">Energy (kWh/day)</div><div class="v" id="t_kwh">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const LS_KEY = 'biogas_entries_v1';
+  const MJ_PER_M3_CH4 = 35.8, KWH_PER_MJ = 1/3.6;
+
+  const el = id=>document.getElementById(id);
+  const tbody = document.querySelector('#tbl tbody');
+  const addBtn = el('addBtn');
+  const clearBtn = el('clearBtn');
+  const loadPresetBtn = el('loadPreset');
+
+  let editingIndex = null; // when editing an existing row
+
+  function readForm(){
+    const slurry = +el('slurry').value || 0;
+    const water = +el('water').value || 0;
+    const TS = +el('ts').value || 0; // % of slurry
+    const VS = +el('vs').value || 0; // % of TS
+    const yieldVal = +el('yield').value || 0; // m3/kg VS
+    const methane = +el('methane').value || 0; // %
+    const eff = +el('eff').value || 0; // %
+    return {slurry, water, TS, VS, yieldVal, methane, eff};
+  }
+
+  function compute(entry){
+    const {slurry, water, TS, VS, yieldVal, methane, eff} = entry;
+    const kgTS = slurry * (TS/100); // TS from slurry only
+    const kgVS = kgTS * (VS/100);
+    const biogasRaw = kgVS * yieldVal; // m3/d
+    const biogas = biogasRaw * (eff/100);
+    const ch4 = biogas * (methane/100);
+    const kwh = ch4 * MJ_PER_M3_CH4 * KWH_PER_MJ;
+
+    const mixTSfrac = (slurry+water) > 0 ? (kgTS/(slurry+water))*100 : 0; // mixture TS %
+    return {kgTS, kgVS, biogas, ch4, kwh, mixTSfrac};
+  }
+
+  function fmt(n, d=2){ return isFinite(n)? n.toFixed(d):'-'; }
+
+  function loadEntries(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY)||'[]'); }catch{ return []; }
+  }
+  function saveEntries(list){ localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+
+  function render(){
+    const list = loadEntries();
+    tbody.innerHTML = '';
+    let t_mass=0, t_ts=0, t_vs=0, t_biogas=0, t_ch4=0, t_kwh=0;
+
+    list.forEach((e, idx)=>{
+      const c = compute(e);
+      t_mass += e.slurry + e.water;
+      t_ts += c.kgTS;
+      t_vs += c.kgVS;
+      t_biogas += c.biogas;
+      t_ch4 += c.ch4;
+      t_kwh += c.kwh;
+
+      const tr = document.createElement('tr');
+      tr.className = 'enter';
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td>${fmt(e.slurry,0)}</td>
+        <td>${fmt(e.water,0)}</td>
+        <td>${fmt(c.mixTSfrac,1)}</td>
+        <td>${fmt(c.kgVS,2)}</td>
+        <td>${fmt(c.biogas,2)}</td>
+        <td>${fmt(c.ch4,2)}</td>
+        <td>
+          <div class="tbl-actions">
+            <button class="btn btn--ghost" data-edit="${idx}">Edit</button>
+            <button class="btn btn--danger" data-del="${idx}">Delete</button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+
+    el('t_mass').textContent = fmt(t_mass,0);
+    el('t_ts').textContent = fmt(t_ts,2);
+    el('t_vs').textContent = fmt(t_vs,2);
+    el('t_biogas').textContent = fmt(t_biogas,2);
+    el('t_ch4').textContent = fmt(t_ch4,2);
+    el('t_kwh').textContent = fmt(t_kwh,2);
+  }
+
+  function clearForm(){ editingIndex=null; addBtn.textContent='Add feedstock'; }
+
+  // Event: Add or Update
+  addBtn.addEventListener('click', ()=>{
+    const data = readForm();
+    const list = loadEntries();
+
+    if(editingIndex===null){
+      list.push(data);
+    } else {
+      list[editingIndex] = data;
+    }
+    saveEntries(list);
+    render();
+    clearForm();
+  });
+
+  // Event delegation for edit/delete
+  tbody.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    const list = loadEntries();
+    const i = +btn.dataset.edit ?? +btn.dataset.del;
+
+    if(btn.dataset.edit !== undefined){
+      const row = list[i];
+      el('slurry').value = row.slurry;
+      el('water').value = row.water;
+      el('ts').value = row.TS;
+      el('vs').value = row.VS;
+      el('yield').value = row.yieldVal;
+      el('methane').value = row.methane;
+      el('eff').value = row.eff;
+      editingIndex = i; addBtn.textContent='Update entry';
+    }
+    if(btn.dataset.del !== undefined){
+      // animate out
+      const tr = btn.closest('tr');
+      tr.classList.add('exit');
+      setTimeout(()=>{
+        list.splice(i,1); saveEntries(list); render();
+      }, 260);
+    }
+  });
+
+  // Clear all
+  clearBtn.addEventListener('click', ()=>{
+    if(confirm('Clear all saved entries?')){
+      saveEntries([]); render(); clearForm();
+    }
+  });
+
+  // Preset loader (fills fields only)
+  loadPresetBtn.addEventListener('click', ()=>{
+    const val = document.getElementById('preset').value;
+    if(!val) return;
+    try{
+      const p = JSON.parse(val);
+      if(p.TS!=null) el('ts').value = p.TS;
+      if(p.VS!=null) el('vs').value = p.VS;
+      if(p.yield!=null) el('yield').value = p.yield;
+      if(p.methane!=null) el('methane').value = p.methane;
+    }catch(err){ console.warn('Invalid preset', err); }
+  });
+
+  // Initial paint
+  render();
+})();
+</script>
+</body>
+</html>
